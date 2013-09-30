@@ -13,6 +13,7 @@ class Density
   def_delegators :@d, :each, :[], :[]=, :inspect, :delete, :values
  
   def initialize(num=0)
+    raise ArgumentError, 'No Integer' unless num.is_a? Integer
     @d=Hash.new(Rational(0))
     @d[num]=Rational(1)
     @uniform=true
@@ -37,13 +38,14 @@ class Density
   
   # addition of INDEPENDENT densities
   def +(y)
+    raise ArgumentError, 'No Integer or Density' unless (y.is_a? Integer or y.is_a? Density)
     z=Density.new
     z.delete(0)
     z.uniform=@uniform
     z.exact=@exact
     z.fail=@fail
     
-    if (y.is_a?Density)
+    if (y.is_a? Density)
       if (y.fail)
         z.fail=true
       end
@@ -58,7 +60,7 @@ class Density
           z[xkey+ykey]+=xvalue*yvalue
         end
       end
-    elsif (y.is_a?Numeric)
+    elsif (y.is_a? Numeric)
       @d.each do |xkey,xvalue|
         z[xkey+y]+=xvalue
       end
@@ -68,6 +70,7 @@ class Density
 
   # multiplication of INDEPENDENT densities
   def *(y)
+    raise ArgumentError, 'No Integer or Density' unless (y.is_a? Integer or y.is_a? Density)
     z=Density.new
     z.delete(0)
     z.uniform=@uniform
@@ -75,7 +78,7 @@ class Density
     z.fail=@fail
 
     # TODO: check if this is working correctly
-    if (y.is_a?Density)
+    if (y.is_a? Density)
       if (y.fail)
         z.fail=true
       end
@@ -91,7 +94,7 @@ class Density
           z[n]+=Rational(@d[d]*y[e],abs(d))
         end
       end
-    elsif (y.is_a?Numeric)
+    elsif (y.is_a? Numeric)
       @d.each do |k,v|
         z[k*y]=v
       end
@@ -103,6 +106,7 @@ class Density
     return self*(-1)
   end
   def -(y)
+    raise ArgumentError, 'No Integer or Density' unless (y.is_a? Integer or y.is_a? Density)
     return self+(y*(-1))
   end
 
@@ -110,11 +114,10 @@ class Density
   def delete_if
     remove_values=@d.select {|item| yield item }.values
     remove_prob=(remove_values==[]) ? 0 : remove_values.inject(:+)
+    raise ArgumentError, 'No remaining probability' unless (remove_prob<1)
     if (remove_prob<1)
       @d.delete_if {|item| yield item }
       @d=(self.mult(Rational(1,1-remove_prob))).d
-    else
-      # TODO
     end
   end
 
@@ -122,16 +125,16 @@ class Density
   def keep_if
     keep_values=(@d.select {|item| yield item}).values
     keep_prob=(keep_values==[]) ? 0 : keep_values.inject(:+)
+    raise ArgumentError, 'No remaining probability' unless (keep_prob>0)
     if (keep_prob>0)
       @d.keep_if {|item| yield item}
       @d=(self.mult(Rational(1,keep_prob))).d
-    else
-      # TODO
     end
   end
 
   # assumes that y is a Density and does pointwise addition. The result is no longer a density!!
   def add(y)
+    raise ArgumentError, 'No Density' unless (y.is_a? Density)
     z=Density.new
     z.delete(0)
     z.uniform=false
@@ -143,6 +146,7 @@ class Density
   end
   # Assumes that y is a Numeric and does pointwise multiplication. The result is no longer a density!!
   def mult(y)
+    raise ArgumentError, 'No Numeric' unless (y.is_a? Numeric)
     z=Density.new
     z.delete(0)
     z.uniform=false
@@ -153,23 +157,28 @@ class Density
     return z
   end
   def sub(y)
+    raise ArgumentError, 'No Density' unless (y.is_a? Density)
     return self.add(y.mult(-1))
   end
   
   # returns the probability that X<n, X>n, X<=n, X>=n
   def <(n)
+    raise ArgumentError, 'No Numeric' unless (n.is_a? Numeric)
     entries=@d.select { |k,v| k<n };
     (entries.empty?) ? 0 : entries.values.inject(:+)
   end
   def >(n)
+    raise ArgumentError, 'No Numeric' unless (n.is_a? Numeric)
     entries=@d.select { |k,v| k>n };
     (entries.empty?) ? 0 : entries.values.inject(:+)
   end
   def <=(n)
+    raise ArgumentError, 'No Numeric' unless (n.is_a? Numeric)
     entries=@d.select { |k,v| k<=n };
     (entries.empty?) ? 0 : entries.values.inject(:+)
   end
   def >=(n)
+    raise ArgumentError, 'No Numeric' unless (n.is_a? Numeric)
     entries=@d.select { |k,v| k>=n };
     (entries.empty?) ? 0 : entries.values.inject(:+)
   end
@@ -192,6 +201,7 @@ class Density
   
   # density plot
   def plot(width=70)
+    raise ArgumentError, 'Improper <width>' unless (width.is_a? Numeric and width>=1)
     max=@d.values.max
     minperc=max*0.5/width*0.8
 
@@ -215,9 +225,11 @@ end
 class DieDensity < Density
   def initialize(max,rerolls=[])
     super()
+    raise ArgumentError, 'max no Integer or too small or rerrolls no Array' unless (max.is_a? Integer and max>=1 and rerolls.is_a? Array)
     @uniform=false
     @d.delete(0)
     n=max-rerolls.size
+    raise ArgumentError, 'too many rerolls, no more dices left' unless (n>=1)
     for k in (1..max).reject{ |n| rerolls.include?n } do
       @d[k]=Rational(1,n)
     end
@@ -228,10 +240,12 @@ end
 class CompoundDieDensity < Density
   def initialize(max,rerolls=[],maxcompound=10)
     super()
+    raise ArgumentError, 'max/maxcompound no Integer or too small or rerrolls no Array' unless (max.is_a? Integer and max>=1 and rerolls.is_a? Array and maxcompound.is_a? Integer and maxcompound>=1)
     @uniform=false
     @d.delete(0)
     basepart=getBasePart(max,rerolls)
     n=max - rerolls.reject{ |n| n==max }.size         
+    raise ArgumentError, 'too many rerolls, no more dices left' unless (n>=1)
     i=0
     while (i<=maxcompound) do
       basepart.each do |k,v|
@@ -263,10 +277,12 @@ end
 class PenetratingDieDensity < Density
   def initialize(max,rerolls=[],maxpenetrate=10)
     super()
+    raise ArgumentError, 'max/maxpenetrate no Integer or too small or rerrolls no Array' unless (max.is_a? Integer and max>=1 and rerolls.is_a? Array and maxpenetrate.is_a? Integer and maxpenetrate>=1)
     @uniform=false
     @d.delete(0)
     basepart=getBasePart(max,rerolls)
     n=max - rerolls.reject{ |n| n==max }.size         
+    raise ArgumentError, 'too many rerolls, no more dices left' unless (n>=1)
   
     # a (very) special case (namely if reroll contains max)
     if (rerolls.include?max)
@@ -320,11 +336,13 @@ end
 class ExplodingDieNumberDensity < Density
   def initialize(max,rerolls=[],count=1,maxexplode=10)
     super()
+    raise ArgumentError, 'max/maxexplode/count no Integer or too small or rerrolls no Array' unless (max.is_a? Integer and max>=1 and count.is_a? Integer and count>=1 and rerolls.is_a? Array and maxexplode.is_a? Integer and maxexplode>=1)
     z=Density.new
     z.delete(0)
     
     if (rerolls.include?max)
       n=max - rerolls.size + 1
+      raise ArgumentError, 'too many rerolls, no more dices left' unless (n>=1)
       z[1]=Rational(n-1,n)
       for k in (2..maxexplode) do
         for r in (1..(k-1)) do
@@ -334,6 +352,7 @@ class ExplodingDieNumberDensity < Density
       z[maxexplode+1]=1-z.values.inject(:+)
     else
       n=max - rerolls.size
+      raise ArgumentError, 'too many rerolls, no more dices left' unless (n>=1)
       for k in (1..maxexplode) do
         z[k]=Rational(n-1,n**k)
       end
@@ -342,7 +361,8 @@ class ExplodingDieNumberDensity < Density
 
     @d=(([z]*count).inject(:+)).d
     @uniform=false
-    # if we only limit the explosions of individual dices don't do the following command:
+
+    # if we only limit the explosions of individual dices don't do the following commands:
     cutoff_probability=@d.select { |k,v| k > maxexplode + count }.values.inject(0,:+)
     @d[maxexplode+count]+=cutoff_probability
     @d.delete_if { |k,v| k > maxexplode + count }
@@ -350,13 +370,15 @@ class ExplodingDieNumberDensity < Density
 end
 
 # density of a modified die roll:
-# "number" identical dices are rolled and then modified according to some function (modifier)
-# if no "modifier" is present then the dice results are simply summed
-# if "number" is a Density then each case is considered with the appropriate probability
+# "density": basic density of the dices which are rerolled and modified
+# "number": the number of identical dices which are rolled and then modified according to "modifiers"
+#           if this is a Density then each case is considered with the appropriate probability
+# "modifiers":  possible modifiers for dice results
 class ModifiedDieDensity < Density
   def initialize(density,number,modifiers=[])
     # TODO: find a good number and a good factor (monte carlo step vs. exact step)
     super()
+    raise ArgumentError, 'Improper Argument type or number is too small' unless (density.is_a? Density and ((number.is_a? Integer and number>=1) or number.is_a? Density))
     num=100000
     factor=1
 
@@ -383,8 +405,7 @@ class ModifiedDieDensity < Density
       @uniform=false
     # if we have a fixed number
     else 
-      if (number.zero?)
-      elsif (modifiers==[])
+      if (modifiers==[])
         @d=(([density]*number).inject(:+)).d
         if (number>1)
           @uniform=false
@@ -448,33 +469,33 @@ end
 # "modifiers" is as usual a list of modifiers
 class ExplodingDieDensity < Density
   def initialize(density,max,count,number,modifiers=[])
+    raise ArgumentError, 'Improper Argument type or argument is too small' unless (density.is_a? Density and number.is_a? Density and max.is_a? Integer and max>=1 and count.is_a? Integer and count>=1)
     (modifiers.is_a? Array) ? mods=modifiers : mods=[modifiers]
 
-    # if we have a distribution of numbers given by a density
-    if (number.is_a? Density)
-      initial_density=Density.new;
-      initial_density.delete(0);
+    initial_density=Density.new;
+    initial_density.delete(0);
 
-      z=number.inject(initial_density) do |i,(n,p)|
-        newmodifiers=[ExplodingModifier.new(max,n-count)] + modifiers
-        temp_d=ModifiedDieDensity.new(density,count,newmodifiers)
-        temp_fail=temp_d.fail or i.fail
-        temp_exact=temp_d.exact and i.exact
-        i=i.add(temp_d.mult(p))
-        i.fail=temp_fail
-        i.exact=temp_exact
-        i
-      end
-      @d=z.d
-      @fail=z.fail
-      @exact=z.exact
-      @uniform=false
+    z=number.inject(initial_density) do |i,(n,p)|
+      newmodifiers=[ExplodingModifier.new(max,n-count)] + modifiers
+      temp_d=ModifiedDieDensity.new(density,count,newmodifiers)
+      temp_fail=temp_d.fail or i.fail
+      temp_exact=temp_d.exact and i.exact
+      i=i.add(temp_d.mult(p))
+      i.fail=temp_fail
+      i.exact=temp_exact
+      i
     end
+
+    @d=z.d
+    @fail=z.fail
+    @exact=z.exact
+    @uniform=false
   end
 end
 
 class ExplodingModifier
   def initialize(max,explosions)
+    raise ArgumentError, 'max/explosions not an Integer or too small' unless (max.is_a? Integer and max>=0 and explosions.is_a? Integer and explosions>=0)
     @max=max
     @explosions=explosions
   end
@@ -482,3 +503,4 @@ class ExplodingModifier
     list + [@max]*@explosions
   end
 end
+
