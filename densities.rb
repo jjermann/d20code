@@ -13,7 +13,7 @@ class Density
   def_delegators :@d, :each, :[], :[]=, :inspect, :delete, :values
  
   def initialize(num=0)
-    raise ArgumentError, 'No Integer' unless num.is_a? Integer
+    #raise ArgumentError, 'No Integer' unless num.is_a? Integer
     @d=Hash.new(Rational(0))
     @d[num]=Rational(1)
     @uniform=true
@@ -38,7 +38,7 @@ class Density
   
   # addition of INDEPENDENT densities
   def +(y)
-    raise ArgumentError, 'No Integer or Density' unless (y.is_a? Integer or y.is_a? Density)
+    #raise ArgumentError, 'No Integer or Density' unless (y.is_a? Integer or y.is_a? Density)
     z=Density.new
     z.delete(0)
     z.uniform=@uniform
@@ -70,7 +70,7 @@ class Density
 
   # multiplication of INDEPENDENT densities
   def *(y)
-    raise ArgumentError, 'No Integer or Density' unless (y.is_a? Integer or y.is_a? Density)
+    #raise ArgumentError, 'No Integer or Density' unless (y.is_a? Integer or y.is_a? Density)
     z=Density.new
     z.delete(0)
     z.uniform=@uniform
@@ -106,7 +106,7 @@ class Density
     return self*(-1)
   end
   def -(y)
-    raise ArgumentError, 'No Integer or Density' unless (y.is_a? Integer or y.is_a? Density)
+    #raise ArgumentError, 'No Integer or Density' unless (y.is_a? Integer or y.is_a? Density)
     return self+(y*(-1))
   end
 
@@ -162,25 +162,12 @@ class Density
   end
   
   # returns the probability that X<n, X>n, X<=n, X>=n
-  def <(n)
-    raise ArgumentError, 'No Numeric' unless (n.is_a? Numeric)
-    entries=@d.select { |k,v| k<n };
-    (entries.empty?) ? 0 : entries.values.inject(:+)
-  end
-  def >(n)
-    raise ArgumentError, 'No Numeric' unless (n.is_a? Numeric)
-    entries=@d.select { |k,v| k>n };
-    (entries.empty?) ? 0 : entries.values.inject(:+)
-  end
-  def <=(n)
-    raise ArgumentError, 'No Numeric' unless (n.is_a? Numeric)
-    entries=@d.select { |k,v| k<=n };
-    (entries.empty?) ? 0 : entries.values.inject(:+)
-  end
-  def >=(n)
-    raise ArgumentError, 'No Numeric' unless (n.is_a? Numeric)
-    entries=@d.select { |k,v| k>=n };
-    (entries.empty?) ? 0 : entries.values.inject(:+)
+  [ :<, :>, :<=, :>=, :== ].each do |sym|
+    define_method sym do |n|
+      raise ArgumentError, 'No Numeric' unless (n.is_a? Numeric)
+      entries=@d.select { |k,v| k.send( sym, n ) };
+      entries.values.inject(0,:+)
+    end
   end
 
   # returns the expecctation value
